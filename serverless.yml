@@ -29,11 +29,14 @@ provider:
 #  region: us-east-1
 
 # you can add statements to the Lambda function's IAM Role here
-#  iamRoleStatements:
-#    - Effect: "Allow"
-#      Action:
-#        - "s3:ListBucket"
-#      Resource: { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "ServerlessDeploymentBucket" } ] ]  }
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - "sqs:SendMessage"
+      Resource:
+        Fn::GetAtt:
+          - TaskQueue
+          - Arn
 #    - Effect: "Allow"
 #      Action:
 #        - "s3:PutObject"
@@ -47,6 +50,13 @@ provider:
 # you can define service wide environment variables here
 #  environment:
 #    variable1: value1
+  environment:
+    TASK_QUEUE_URL:
+      Ref: TaskQueue
+    TASK_QUEUE_ARN:
+      Fn::GetAtt:
+        - TaskQueue
+        - Arn
 
 # you can add packaging information here
 #package:
@@ -60,20 +70,25 @@ provider:
 functions:
   checkQueue:
     handler: handler.checkQueue
-    environment:
-      TASK_QUEUE_URL:
-        Ref: TaskQueue
-      TASK_QUEUE_ARN:
-        Fn::GetAtt:
-          - TaskQueue
-          - Arn
-#    The following are a few example events you can configure
-#    NOTE: Please make sure to change your handler code to work with those events
-#    Check the event documentation for details
     events:
       - http:
           path: checkQueue
           method: get
+  newMessage:
+    handler: handler.newMessage
+    events:
+      - http:
+          path: message
+          method: post
+  consume:
+    handler: handler.consume
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - TaskQueue
+              - Arn
+          batchSize: 1
 #      - websocket: $connect
 #      - s3: ${env:BUCKET}
 #      - schedule: rate(10 minutes)
